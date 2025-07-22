@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electric Power Cube - Scroll to Energize</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(ellipse at center, #0a0a1a 0%, #000000 100%);
+            font-family: 'Orbitron', monospace;
+            height: 500vh; /* Make it scrollable for power effect */
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        #cube-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .power-hud {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #00ffff;
+            font-size: 14px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(0, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+            min-width: 280px;
+            opacity: 0;
+        }
+
+        .hud-title {
+            font-size: 18px;
+            font-weight: 900;
+            margin-bottom: 15px;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        .power-meter {
+            width: 100%;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+
+        .power-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #ff00ff, #ffff00);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+        }
+
+        .scroll-indicator {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ffff;
+            text-align: center;
+            z-index: 1000;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+            50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+        }
+
+        .content-section {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 2rem;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .electric-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="cube-container"></div>
+    
+    <div class="power-hud">
+        <div class="hud-title">⚡ POWER CORE ⚡</div>
+        <div>Energy Level:</div>
+        <div class="power-meter">
+            <div class="power-fill" id="powerFill"></div>
+        </div>
+        <div id="powerPercent">0%</div>
+        <div style="margin-top: 10px; font-size: 12px;">
+            Scroll: <span id="scrollPercent">0%</span><br>
+            Rotation Speed: <span id="rotationSpeed">1x</span><br>
+            Glow Intensity: <span id="glowIntensity">Low</span>
+        </div>
+    </div>
+
+    <div class="scroll-indicator">
+        <div>⬇ SCROLL TO POWER UP ⬇</div>
+        <div style="font-size: 12px; margin-top: 5px;">Unleash the Electric Energy</div>
+    </div>
+
+    <!-- Content sections for scrolling -->
+    <div class="content-section">
+        <div>
+            <h2>⚡ ELECTRIC POWER CUBE ⚡</h2>
+            <p>Scroll down to charge the energy core</p>
+        </div>
+    </div>
+    <div class="content-section">
+        <div>
+            <h2>🔋 ENERGY BUILDING</h2>
+            <p>Feel the power growing stronger</p>
+        </div>
+    </div>
+    <div class="content-section">
+        <div>
+            <h2>⚡ MAXIMUM POWER</h2>
+            <p>The cube pulses with electric energy</p>
+        </div>
+    </div>
+    <div class="content-section">
+        <div>
+            <h2>🌟 OVERCHARGED</h2>
+            <p>Pure electric magnificence</p>
+        </div>
+    </div>
+    <div class="content-section">
+        <div>
+            <h2>💥 ULTIMATE POWER</h2>
+            <p>The energy core is at maximum capacity</p>
+        </div>
+    </div>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Anime.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+
+    <script>
+        // Scene setup
+        let scene, camera, renderer;
+        let cube, cubeGroup, wireframe;
+        let ambientLight, pointLight1, pointLight2, pointLight3;
+        let particleSystem;
+        let scrollProgress = 0;
+        let powerLevel = 0;
+        let rotationSpeed = 1;
+        let glowIntensity = 1;
+        
+        // Debug flag
+        let debugMode = true;
+
+        // Initialize Three.js scene
+        function initScene() {
+            if (debugMode) console.log('Creating scene...');
+            scene = new THREE.Scene();
+            
+            if (debugMode) console.log('Creating camera...');
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+
+            if (debugMode) console.log('Creating renderer...');
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000);
+            
+            const container = document.getElementById('cube-container');
+            if (container) {
+                container.appendChild(renderer.domElement);
+                if (debugMode) console.log('Renderer added to container');
+            } else {
+                if (debugMode) console.error('Container not found!');
+            }
+        }
+
+        // Create electric cube
+        function createElectricCube() {
+            if (debugMode) console.log('Creating cube...');
+            
+            // Simple approach first
+            const geometry = new THREE.BoxGeometry(2, 2, 2);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0x00ffff,
+                wireframe: false
+            });
+            
+            cube = new THREE.Mesh(geometry, material);
+            scene.add(cube);
+            
+            if (debugMode) console.log('Basic cube added to scene');
+            
+            // Create wireframe
+            const wireframeGeometry = new THREE.EdgesGeometry(geometry);
+            const wireframeMaterial = new THREE.LineBasicMaterial({ 
+                color: 0xffffff,
+                opacity: 0.8,
+                transparent: true
+            });
+            wireframe = new THREE.LineSegments(wireframeGeometry, wireframeMaterial);
+            scene.add(wireframe);
+            
+            if (debugMode) console.log('Wireframe added');
+            
+            // Create group for animations
+            cubeGroup = new THREE.Group();
+            cubeGroup.add(cube);
+            cubeGroup.add(wireframe);
+            scene.add(cubeGroup);
+            
+            if (debugMode) console.log('Cube group created and added');
+        }
+
+        // Create lighting system
+        function createLighting() {
+            if (debugMode) console.log('Creating lights...');
+            
+            // Simple ambient light
+            ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+            
+            if (debugMode) console.log('Ambient light added');
+        }
+
+        // Create electric particles
+        function createElectricParticles() {
+            if (debugMode) console.log('Skipping particles for now...');
+            // Skip particles for debugging
+        }
+
+        // Handle scroll events
+        function handleScroll() {
+            const scrollTop = window.pageYOffset;
+            const docHeight = document.body.scrollHeight - window.innerHeight;
+            scrollProgress = Math.min(scrollTop / docHeight, 1);
+            
+            // Update power level based on scroll
+            powerLevel = scrollProgress;
+            rotationSpeed = 1 + scrollProgress * 4;
+            glowIntensity = 1 + scrollProgress * 3;
+
+            // Update HUD
+            document.getElementById('powerFill').style.width = (powerLevel * 100) + '%';
+            document.getElementById('powerPercent').textContent = Math.round(powerLevel * 100) + '%';
+            document.getElementById('scrollPercent').textContent = Math.round(scrollProgress * 100) + '%';
+            document.getElementById('rotationSpeed').textContent = rotationSpeed.toFixed(1) + 'x';
+            
+            const intensityLevels = ['Low', 'Medium', 'High', 'Extreme', 'Maximum'];
+            const intensityIndex = Math.floor(powerLevel * (intensityLevels.length - 1));
+            document.getElementById('glowIntensity').textContent = intensityLevels[intensityIndex];
+
+            // Update cube material based on power level
+            if (cube && cube.material) {
+                // Change color based on power level using anime.js
+                const hue = powerLevel * 0.8; // 0 to 0.8 (cyan to magenta)
+                cube.material.color.setHSL(hue, 1, 0.5 + powerLevel * 0.3);
+                
+                if (debugMode && powerLevel > 0) {
+                    console.log('Power level:', powerLevel, 'Hue:', hue);
+                }
+            }
+
+            if (wireframe && wireframe.material) {
+                wireframe.material.opacity = 0.5 + powerLevel * 0.5;
+            }
+
+            // Animate cube based on power level using anime.js
+            if (cube && typeof anime !== 'undefined') {
+                anime({
+                    targets: cube.scale,
+                    x: 1 + powerLevel * 0.5,
+                    y: 1 + powerLevel * 0.5,
+                    z: 1 + powerLevel * 0.5,
+                    duration: 300,
+                    easing: 'easeOutQuad'
+                });
+                
+                if (wireframe) {
+                    anime({
+                        targets: wireframe.scale,
+                        x: 1 + powerLevel * 0.5,
+                        y: 1 + powerLevel * 0.5,
+                        z: 1 + powerLevel * 0.5,
+                        duration: 300,
+                        easing: 'easeOutQuad'
+                    });
+                }
+            }
+
+            // Electric pulse effect at high power
+            if (powerLevel > 0.7) {
+                triggerElectricPulse();
+            }
+        }
+
+        // Electric pulse effect
+        function triggerElectricPulse() {
+            if (Math.random() < 0.1 && wireframe && typeof anime !== 'undefined') { // 10% chance per scroll update
+                anime({
+                    targets: wireframe.material,
+                    opacity: [wireframe.material.opacity, 1, wireframe.material.opacity],
+                    duration: 200,
+                    easing: 'easeInOutQuad'
+                });
+                
+                // Pulse the cube color
+                anime({
+                    targets: cube.rotation,
+                    x: cube.rotation.x + 0.1,
+                    y: cube.rotation.y + 0.1,
+                    duration: 100,
+                    easing: 'easeInOutQuad'
+                });
+            }
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (cube) {
+                cube.rotation.x += 0.01 * rotationSpeed;
+                cube.rotation.y += 0.012 * rotationSpeed;
+                cube.rotation.z += 0.008 * rotationSpeed;
+            }
+
+            if (wireframe) {
+                wireframe.rotation.x += 0.01 * rotationSpeed;
+                wireframe.rotation.y += 0.012 * rotationSpeed;
+                wireframe.rotation.z += 0.008 * rotationSpeed;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Resize handler
+        function handleResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Initialize everything
+        function init() {
+            console.log('Initializing...');
+            
+            try {
+                initScene();
+                console.log('Scene initialized');
+                
+                createElectricCube();
+                console.log('Cube created');
+                
+                createLighting();
+                console.log('Lighting created');
+                
+                createElectricParticles();
+                console.log('Particles created');
+                
+                // Event listeners
+                window.addEventListener('scroll', handleScroll);
+                window.addEventListener('resize', handleResize);
+                
+                // Start animation
+                animate();
+                console.log('Animation started');
+                
+                // Initial scroll check
+                handleScroll();
+                
+                // Initial animations with anime.js
+                setTimeout(() => {
+                    if (cube && typeof anime !== 'undefined') {
+                        // Fade in the cube
+                        cube.scale.set(0, 0, 0);
+                        wireframe.scale.set(0, 0, 0);
+                        
+                        anime({
+                            targets: cube.scale,
+                            x: [0, 1],
+                            y: [0, 1],
+                            z: [0, 1],
+                            duration: 2000,
+                            easing: 'easeOutElastic(1, .8)'
+                        });
+                        
+                        anime({
+                            targets: wireframe.scale,
+                            x: [0, 1],
+                            y: [0, 1],
+                            z: [0, 1],
+                            duration: 2000,
+                            easing: 'easeOutElastic(1, .8)'
+                        });
+                        
+                        console.log('Cube entrance animation started');
+                    }
+
+                    // Animate HUD appearance
+                    if (typeof anime !== 'undefined') {
+                        anime({
+                            targets: '.power-hud',
+                            opacity: [0, 1],
+                            translateX: [-100, 0],
+                            duration: 1500,
+                            easing: 'easeOutQuad'
+                        });
+                        console.log('HUD animation started');
+                    }
+                }, 500);
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+            }
+        }
+
+        // Start when page loads
+        window.addEventListener('load', init);
+
+        // Check if libraries are loaded
+        window.addEventListener('load', () => {
+            console.log('THREE.js loaded:', typeof THREE !== 'undefined');
+            console.log('Anime.js loaded:', typeof anime !== 'undefined');
+        });
+    </script>
+</body>
+</html>
